@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import styles from './pilagame.module.scss'
+import styles from './pilagame.module.scss';
+import HeartIcon from "@/public/Corazon.svg";
 export default function PagePilaGame() {
 
   const words = [
@@ -106,7 +107,9 @@ export default function PagePilaGame() {
     <main className="bg-zinc-50 dark:bg-blacks">
       <div className={`flex flex-row bg-zinc-50 dark:bg-black justify-center pt-7 ${styles.points}`}>
         <h2 className="p-2 pr-40">Puntos: {points} </h2>
-        <h2 className="p-2">Vidas: {lives} </h2>
+
+        <img className={`${styles.hearts}`} src="Heart.png"/>
+        <h2 className="p-2">/ {lives} </h2>
       </div>
       <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-black" >
         <section className={`flex flex-col justify-center bg-white dark:bg-zinc-900 p-8 rounded-2xl shadow-md ${styles.centerCard}`}>
