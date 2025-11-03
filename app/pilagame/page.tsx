@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import styles from './pilagame.module.scss';
-import HeartIcon from "@/public/Corazon.svg";
+
 export default function PagePilaGame() {
 
   const words = [
@@ -24,33 +24,65 @@ export default function PagePilaGame() {
   const [lettersUp, setlettersUp] = useState<string[]>([]);
   const [lettersDown, setlettersDown] = useState<string[]>([]);
   const [points, setPoints] = useState(0); //use estate declara variable y funcion para actualizarla
-  const [lives, setLives] = useState(3); //use estate declara variable y funcion para actualizarla
+const [lives, setLives] = useState(3);//use estate declara variable y funcion para actualizarla
 
+//? Tanke: separo la logica de perder vida
+const loseLife = () => {
+  if (lives > 0) {
 
-  const initGame = (estado?: Number) => {
-    const randomWord = words[Math.floor(Math.random() * words.length)];
-    const shuffled = randomWord.split("").sort(() => Math.random() - 0.2); //ordenar random despues de dividir
-    setTargetWord(randomWord);
-    setlettersDown(shuffled);
-    setlettersUp([]);
-
-    if (estado != null) {
-      if (estado == 1) {
-        const newPoints = + (points + 100);
-        setPoints(newPoints);
-      }
-      else {
-        let newLives = (lives - 1);
+      setLives(prev => {
+        const newLives = prev - 1;
         if (newLives < 1) {
-          newLives = 3
-
-          setPoints(0)
+          setPoints(0);
+          return 3;
         }
-        setLives(newLives)
-      }
-    }
-  };
+        return newLives;
+      });
 
+  }
+};
+
+const initGame = (estado?: number) => {
+  const randomWord = getRandomWord();
+  const shuffled = shuffledWordAndSepared(randomWord);
+  setTargetWord(randomWord);
+  setlettersDown(shuffled);
+  setlettersUp([]);
+
+  //!Evitar ifs anidados
+  if ( estado != null && estado === 1)
+    return setPoints(p => p + 100);
+  return loseLife();
+    
+  
+};
+
+  //? Tanke: separando la optencion random de las palatbas para en un futuro si es necesario cambiarlo a una optencion externa y modificar lo menos posible
+  const getRandomWord  = ():string =>  words[Math.floor(Math.random() * words.length)];
+  //? Tanke: Mejorando un poco el mezclado de las palabras para tomar en cuenta casos donde no se puede
+ const shuffledWordAndSepared = (word: string): string[] => {
+  const chars = [...word];
+
+  // Imposible de mezclar
+  if (chars.length < 2 || chars.every(c => c === chars[0])) {
+    throw new Error("No se puede mezclar");
+  }
+
+  // Hasta 4 intentos con el sort aleatorio
+  for (let i = 0; i < 4; i++) {
+    const newWord = [...chars].sort(() => Math.random() - 0.5);
+    if (newWord.join("") !== word) return newWord;
+  }
+
+  // Fallback: forzar diferencia con un swap sencillo
+  const k = chars.findIndex(c => c !== chars[0]);
+  if (k !== -1) {
+    [chars[0], chars[k]] = [chars[k], chars[0]];
+    return chars;
+  }
+
+  throw new Error("No se puede mezclar");
+};
   const resetGame = () => {
     const shuffled = targetWord.split("").sort(() => Math.random() - 0.2); //ordenar random despues de dividir
     setlettersDown(shuffled);
@@ -70,123 +102,130 @@ export default function PagePilaGame() {
     initGame();
   }, []);
 
-  //Función para mover una letra arriba
-  const moveLetterUp = (index: number) => {
-    const newLettersDown = [...lettersDown]; //letters no se puede modificar al ser un estado perse, se necesita de otra variable (por eso el setLetters)
-    const letra = newLettersDown.splice(index, 1)[0];
+// Sube una letra desde lettersDown[ind] al siguiente slot libre (al final de lettersUp)
+const moveLetterUpFromDown = (ind: number) => {
+  if (lettersUp.length >= targetWord.length) return;
 
-    const newLettersUp = [...lettersUp];
-    newLettersUp.push(letra)
+  const down = [...lettersDown];
+  const char = down.splice(ind, 1)[0];
+  if (!char) return;
 
-    setlettersUp(newLettersUp);
-    setlettersDown(newLettersDown);
-    // Verifica si ya está ordenada
+  const up = [...lettersUp, char];
+  setlettersDown(down);
+  setlettersUp(up);
+};
+//TODO: No poder bajar letras si ya tienes todas arriba
+// Baja la letra del slot i de lettersUp y la regresa a lettersDown
+const moveLetterDownAtIndex = (i: number) => {
+  if (i < 0 || i >= lettersUp.length) return;
 
-    if (newLettersUp.join("") === targetWord) { //join convierte el arreglo a string
-      alert("¡Palabra ordenada!");
-      //initGame();
-    }
-  };
+  const up = [...lettersUp];
+  const [char] = up.splice(i, 1);
+  const down = [...lettersDown, char];
 
-  const moveLetterDown = (index: number) => {
-    const newLettersUp = [...lettersUp]; //letters no se puede modificar al ser un estado perse, se necesita de otra variable (por eso el setLetters)
-    const letra = newLettersUp.pop() || '';
-
-    if (letra == '') return;
-
-    const newLettersDown = [...lettersDown];
-    newLettersDown.push(letra)
-
-    setlettersUp(newLettersUp);
-    setlettersDown(newLettersDown);
-
-  }
+  setlettersUp(up);
+  setlettersDown(down);
+};
 
 
-  return (
-    <main className="bg-zinc-50 dark:bg-blacks">
-      <div className={`flex flex-row bg-zinc-50 dark:bg-black justify-center pt-7 ${styles.points}`}>
-        <h2 className="p-2 pr-40">Puntos: {points} </h2>
 
-        <img className={`${styles.hearts}`} src="Heart.png"/>
-        <h2 className="p-2">/ {lives} </h2>
+  return (<main className="min-h-screen bg-zinc-50 dark:bg-black">
+  {/* Barra superior: puntos + vidas */}
+  <header
+    className={`sticky top-0 z-10 ${styles.points} flex items-center justify-center gap-8 px-4 py-3
+    bg-zinc-50/80 dark:bg-black/80 backdrop-blur supports-[backdrop-filter]:bg-zinc-50/60`}
+  >
+    <div className="flex items-center gap-2">
+      <h2 className="font-medium">Puntos</h2>
+      <div className="flex items-center gap-2" aria-live="polite">
+        <img className={`${styles.icon_header} `} src="/trophy.png" alt="Trofeo" />
+        <span className="text-lg font-semibold">{points}</span>
       </div>
-      <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-black" >
-        <section className={`flex flex-col justify-center bg-white dark:bg-zinc-900 p-8 rounded-2xl shadow-md ${styles.centerCard}`}>
-          <h1 className="text-2xl font-bold mb-7 text-black dark:text-white">
-            Ordena la palabra
-          </h1>
+    </div>
+
+    <div className="flex items-center gap-2">
+      <h2 className="font-medium">Vidas</h2>
+      <div className="flex items-center gap-1" role="img" aria-label={`Vidas: ${lives}`}>
+  {Array.from({ length: Math.max(0, lives) }).map((_, i) => (
+    <img
+      key={i}
+      className={`${styles.icon_header} `}
+      src="/Heart.png"
+      alt="Corazón"
+    />
+  ))}
+</div>
+    </div>
+  </header>
+
+  <div className="container mx-auto px-4 py-8 md:py-12">
+<section className="mx-auto w-full max-w-[900px] rounded-2xl bg-white dark:bg-zinc-900 p-6 md:p-8 shadow-md">
+
+      <h1 className="text-2xl md:text-3xl font-bold mb-6 text-black dark:text-white  text-center">
+        Ordena la palabra
+      </h1>
+
+     {/* Slots interactivos (arriba): se rellenan con lettersUp */}
+<div className="mb-4 flex justify-center flex-wrap gap-3">
+  {Array.from({ length: targetWord.length }).map((_, i) => {
+    const char = lettersUp[i];
+    const ok = char && char === targetWord[i];
+
+    return (
+      <button
+        type="button"
+        key={i}
+        onClick={() => (char ? moveLetterDownAtIndex(i) : undefined)}
+        className={[
+          "w-10 h-12 rounded-lg flex items-center justify-center text-xl",
+          char
+            ? ok
+              ? "bg-zinc-200 dark:bg-green-500/80 text-black"
+              : "bg-zinc-800 dark:bg-red-700 text-white"
+            : "px-2 pb-1 text-center border-b-2 border-dashed border-zinc-400 dark:border-zinc-600"
+        ].join(" ")}
+      >
+        {char ?? ""}
+      </button>
+    );
+  })}
+</div>
+
+<div className="flex flex-wrap gap-2 items-center justify-center">
+  {lettersDown.map((letter, index) => (
+    <button
+      type="button"
+      key={`${letter}-${index}`}
+      onClick={() => moveLetterUpFromDown(index)}
+      className="rounded-lg px-4 py-2 text-xl bg-zinc-200 dark:bg-zinc-800 text-black dark:text-white transition-colors"
+    >
+      {letter}
+    </button>
+  ))}
+</div>
 
 
+      {/* Acciones */}
+      <div className="mt-6 flex flex-wrap gap-3 items-center justify-center">
+        <button
+          onClick={() => (lettersUp.join("") === targetWord ? initGame(1) : initGame(-1))}
+          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
+        >
+          Nueva palabra
+        </button>
 
-          <div className="flex flex-row gap-3" >
-            {lettersUp.map((letter, index) => ( //mapear el arreglo de letras -- similar a ngfor
-              <div onClick={() => lettersDown[0] != null ? moveLetterDown(index) : null}
-                key={index} //necesario poner el index para que react reconozca.
-                className={
-                  lettersDown[0] != null
-                    ? "flex items-center justify-between bg-zinc-200 dark:bg-zinc-800 rounded-lg px-5 py-2 cursor-pointer"
-                    :
-                    letter == targetWord[index]
-                      ? "flex items-center justify-between bg-zinc-200 dark:bg-green-400 rounded-lg px-5 py-2 cursor-pointer"
-                      : "flex items-center justify-between bg-zinc-800  dark:bg-red-800 rounded-lg px-5 py-2 cursor-pointer"
-                }
-              >
-                <span className="text-xl text-black dark:text-white">{letter}</span>
-              </div>
-            ))}
-
-
-
-          </div>
-
-
-          <div className="flex flex-row">
-            {Array.from(targetWord).map((_, index) => (
-              <div key={index} className="flex px-2">
-                <p className="flex gap-1 px-1">____</p>
-              </div>
-            ))}
-          </div>
-
-          <br></br>
-
-          <div className="flex flex-row gap-2">
-            {lettersDown.map((letter, index) => ( //mapear el arreglo de letras -- similar a ngfor
-              <div onClick={() => moveLetterUp(index)}
-                key={index} //necesario poner el index para que react reconozca.
-                className="flex items-center bg-zinc-200 dark:bg-zinc-800 rounded-lg px-4 py-2 cursor-pointer"
-              >
-                <span className="text-xl text-black dark:text-white">{letter}</span>
-              </div>
-            ))}
-          </div>
-
+        {lettersDown[0] == null && lettersUp.join("") !== targetWord && (
           <button
-
-            onClick={() => lettersUp.join("") === targetWord ? initGame(1) : initGame(-1)}
-            className="mt-6 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded cursor-pointer"
+            onClick={resetGame}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded"
           >
-            Nueva palabra
+            Intentar de nuevo
           </button>
-
-
-          {lettersDown[0] == null && (lettersUp.join("") !== targetWord) && (
-            <button
-              onClick={resetGame}
-              className="mt-6 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded cursor-pointer"
-            >
-              Intentar de nuevo
-            </button>
-          )}
-
-
-
-
-        </section>
-
-
+        )}
       </div>
-    </main>
+    </section>
+  </div>
+</main>
+
   );
 }

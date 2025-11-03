@@ -1,19 +1,7 @@
-.points{
-    padding-top: 100px;
-    margin: 0 auto
+.icon_header {
+  width: clamp(20px, 4vw, 32px);
+  height: clamp(20px, 4vw, 32px);
+  transform-origin: center;
+
 }
-.centerCard{
-    min-height: 300px;
-    min-width: 500px;
-    max-width: 900px;
-    margin: 0 auto;
-    margin-top: -350px;
-}
-.back{
-    width: 100%;
-}
-.hearts{
-    width: 30px;
-    height: 30px;
-    margin-top: 5px;
-}
+
